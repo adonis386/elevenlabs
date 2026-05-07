@@ -1,4 +1,46 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## WhatsApp AI Agent (Twilio + ElevenLabs) — MVP
+
+This project is a minimal webhook for **Twilio WhatsApp** deployed on **Vercel**.
+
+### Endpoint
+
+- `POST /api/twilio/whatsapp`
+  - Accepts Twilio's incoming message webhook (`application/x-www-form-urlencoded`)
+  - Optionally validates `X-Twilio-Signature` if `TWILIO_AUTH_TOKEN` is set
+  - Returns TwiML immediately (MVP)
+
+### Local setup
+
+1) Install deps
+
+```bash
+npm i
+```
+
+2) Create `.env.local` from `.env.example` and fill values:
+
+```bash
+cp .env.example .env.local
+```
+
+3) Run dev server
+
+```bash
+npm run dev
+```
+
+### Connect Twilio WhatsApp webhook
+
+In the Twilio Console for your WhatsApp sender, configure the **incoming message webhook** to:
+
+- Local (with a tunnel like ngrok): `https://<your-tunnel>/api/twilio/whatsapp`
+- Vercel: `https://<your-app>.vercel.app/api/twilio/whatsapp`
+
+### Next steps (we’ll implement next)
+
+- Call ElevenLabs TTS and generate an audio response
+- Host the generated audio (or use a storage provider) and reply via Twilio REST API with media
+- Add robust signature validation using the exact public URL (Vercel headers)
 
 ## Getting Started
 
