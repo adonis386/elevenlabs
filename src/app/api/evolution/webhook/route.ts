@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 
 import { evolutionSendPresence, evolutionSendText } from "@/lib/evolution-outbound";
 import { parseMessagesUpsert } from "@/lib/evolution-inbound";
-import { generateAgentReply } from "@/lib/gemini-agent";
+import { generateAgentReply, isGeminiRateLimitedError } from "@/lib/gemini-agent";
+
+const DEFAULT_QUOTA_WHATSAPP_MESSAGE =
+  "Hola, ahora mismo el asistente automático tiene el límite de uso alcanzado. " +
+  "Intenta de nuevo más tarde o, si prefieres, te atiende alguien del equipo de Vector Studio en horario laboral.";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -63,10 +67,21 @@ export async function POST(req: Request) {
       );
     }
 
-    const reply = await generateAgentReply({
-      userDisplayName: inbound.pushName,
-      userMessage: inbound.userText,
-    });
+    let reply: string;
+    try {
+      reply = await generateAgentReply({
+        userDisplayName: inbound.pushName,
+        userMessage: inbound.userText,
+      });
+    } catch (e) {
+      if (isGeminiRateLimitedError(e)) {
+        console.warn("[evolution webhook] Gemini cuota/429 — respuesta alternativa al usuario");
+        reply =
+          process.env.GEMINI_QUOTA_USER_MESSAGE?.trim() || DEFAULT_QUOTA_WHATSAPP_MESSAGE;
+      } else {
+        throw e;
+      }
+    }
 
     const send = await evolutionSendText({
       baseUrl: base,

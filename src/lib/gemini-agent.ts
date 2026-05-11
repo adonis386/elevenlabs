@@ -1,6 +1,23 @@
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ApiError, GoogleGenAI, ThinkingLevel } from "@google/genai";
+
+/** True si Google devolvió 429 / cuota (plan gratuito u otros límites). */
+export function isGeminiRateLimitedError(e: unknown): boolean {
+  if (e instanceof ApiError && e.status === 429) return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return (
+    msg.includes("RESOURCE_EXHAUSTED") ||
+    msg.includes("quota exceeded") ||
+    msg.includes('"code":429') ||
+    msg.includes("GenerateRequestsPerDay")
+  );
+}
 
 const DEFAULT_MODEL = "gemini-3.1-pro-preview";
+
+/** `thinkingConfig` solo aplica a modelos Gemini 3 (p. ej. gemini-3-*); 2.5 Flash devuelve 400 si se envía. */
+function modelSupportsThinkingConfig(modelId: string): boolean {
+  return modelId.toLowerCase().includes("gemini-3");
+}
 
 /**
  * Agente comercial por WhatsApp: empresa de desarrollo de agentes de IA y aplicaciones.
@@ -40,7 +57,8 @@ REGLAS
 - Si la pregunta es técnica muy específica fuera del alcance general, resume lo posible y sugiere que un especialista del equipo confirme detalles.`;
 
 /**
- * Genera la respuesta del agente usando Gemini 3 (@google/genai).
+ * Genera la respuesta del agente (@google/genai).
+ * Con modelos `gemini-3-*` se usa thinking bajo; con `gemini-2.5-*` u otros, no se envía thinkingConfig.
  * @see https://ai.google.dev/gemini-api/docs/gemini-3?hl=es-419
  */
 export async function generateAgentReply(input: {
@@ -65,9 +83,9 @@ export async function generateAgentReply(input: {
     contents: userLine,
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
-      thinkingConfig: {
-        thinkingLevel: ThinkingLevel.LOW,
-      },
+      ...(modelSupportsThinkingConfig(model)
+        ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+        : {}),
     },
   });
 
