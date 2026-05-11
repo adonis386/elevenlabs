@@ -12,7 +12,10 @@ const DEFAULT_QUOTA_WHATSAPP_MESSAGE =
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-/** Máximo de ms que pedimos mostrar "escribiendo…" (debe cubrir la generación con Gemini). */
+/**
+ * Ms que Evolution mantiene el estado "escribiendo…" en el chat del usuario (no bloquea el servidor).
+ * Debe ser ≥ tiempo típico de Gemini para que el indicador no se apague antes del mensaje.
+ */
 function typingDelayMs(): number {
   const raw = process.env.EVOLUTION_TYPING_DELAY_MS?.trim();
   const n = raw ? Number.parseInt(raw, 10) : 45_000;
@@ -22,7 +25,7 @@ function typingDelayMs(): number {
 
 /**
  * POST: Evolution → Vercel. Responde por WhatsApp con Gemini (@google/genai).
- * Activa presencia "composing" antes de generar para que el usuario vea "escribiendo…".
+ * Lanza presencia "composing" en paralelo (sin esperar la respuesta HTTP) para no sumar RTT a Evolution antes de Gemini.
  */
 export async function POST(req: Request) {
   let body: unknown;
@@ -59,21 +62,26 @@ export async function POST(req: Request) {
   }
 
   try {
-    const presence = await evolutionSendPresence({
+    void evolutionSendPresence({
       baseUrl: base,
       apiKey,
       instanceName,
       number: inbound.number,
       presence: "composing",
       delayMs: typingDelayMs(),
-    });
-    if (!presence.ok) {
-      console.warn(
-        "[evolution webhook] sendPresence (composing) no OK",
-        presence.status,
-        presence.body.slice(0, 200),
-      );
-    }
+    })
+      .then((presence) => {
+        if (!presence.ok) {
+          console.warn(
+            "[evolution webhook] sendPresence (composing) no OK",
+            presence.status,
+            presence.body.slice(0, 200),
+          );
+        }
+      })
+      .catch((err) => {
+        console.warn("[evolution webhook] sendPresence", err);
+      });
 
     let reply: string;
     try {
