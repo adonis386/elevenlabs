@@ -9,8 +9,16 @@ export type EvolutionInbound = {
   messageKeyId?: string;
 };
 
+type MsgKey = {
+  remoteJid?: string;
+  /** Con LID, WhatsApp envía el PN aquí (p. ej. 584...@s.whatsapp.net). */
+  remoteJidAlt?: string;
+  fromMe?: boolean;
+  id?: string;
+};
+
 type MsgEnvelope = {
-  key?: { remoteJid?: string; fromMe?: boolean; id?: string };
+  key?: MsgKey;
   message?: Record<string, unknown>;
   pushName?: string;
 };
@@ -35,12 +43,30 @@ function textFromMessage(message: Record<string, unknown> | undefined): string |
   return null;
 }
 
+/** Extrae número E.164 sin + desde un JID individual (@s.whatsapp.net / @c.us). */
 function jidToDigits(remoteJid: string): string | null {
   if (!remoteJid || remoteJid.includes("@g.us")) return null;
   if (remoteJid.includes("status@broadcast")) return null;
-  const [user] = remoteJid.split("@");
-  if (!user || !/^\d+$/.test(user)) return null;
+  let [user] = remoteJid.split("@");
+  if (!user) return null;
+  // "584241224783:93@s.whatsapp.net" → parte antes de ":" (agente/dispositivo)
+  if (user.includes(":")) {
+    user = user.split(":")[0] ?? user;
+  }
+  if (!/^\d+$/.test(user)) return null;
   return user;
+}
+
+/** Prefiere PN real cuando el chat viene como Linked ID (@lid). */
+function inboundDigitsFromKey(key: MsgKey): string | null {
+  const primary = key.remoteJid;
+  const alt = key.remoteJidAlt;
+  if (primary?.endsWith("@lid") && typeof alt === "string" && alt.trim()) {
+    return jidToDigits(alt.trim());
+  }
+  if (primary) return jidToDigits(primary);
+  if (typeof alt === "string" && alt.trim()) return jidToDigits(alt.trim());
+  return null;
 }
 
 function collectEnvelopes(data: unknown): MsgEnvelope[] {
@@ -84,9 +110,8 @@ export function parseMessagesUpsert(body: unknown): EvolutionInbound | null {
   const envelopes = collectEnvelopes(o.data);
   for (const env of envelopes) {
     if (env.key?.fromMe) continue;
-    const jid = env.key?.remoteJid;
-    if (!jid) continue;
-    const number = jidToDigits(jid);
+    if (!env.key?.remoteJid && !env.key?.remoteJidAlt) continue;
+    const number = inboundDigitsFromKey(env.key);
     if (!number) continue;
     const userText = textFromMessage(env.message);
     if (!userText) continue;
