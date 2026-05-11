@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { evolutionSendText } from "@/lib/evolution-outbound";
+import { clipTextForTts, elevenLabsTtsMaxChars, textToSpeechMp3Base64 } from "@/lib/elevenlabs-tts";
+import { evolutionSendText, evolutionSendWhatsAppAudio } from "@/lib/evolution-outbound";
 import { parseMessagesUpsert } from "@/lib/evolution-inbound";
 import { generateAgentReply } from "@/lib/gemini-agent";
 
@@ -37,11 +38,63 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Sin nombre de instancia" }, { status: 500 });
   }
 
+  const elevenKey = process.env.ELEVENLABS_API_KEY?.trim();
+  const elevenVoice = process.env.ELEVENLABS_VOICE_ID?.trim();
+  const useVoice = Boolean(elevenKey && elevenVoice);
+
   try {
     const reply = await generateAgentReply({
       userDisplayName: inbound.pushName,
       userMessage: inbound.userText,
+      forVoiceNote: useVoice,
     });
+
+    if (useVoice) {
+      const maxChars = elevenLabsTtsMaxChars();
+      const forTts = clipTextForTts(reply, maxChars);
+      const audioB64 = await textToSpeechMp3Base64({
+        apiKey: elevenKey!,
+        voiceId: elevenVoice!,
+        text: forTts,
+      });
+
+      const sendAudio = await evolutionSendWhatsAppAudio({
+        baseUrl: base,
+        apiKey,
+        instanceName,
+        number: inbound.number,
+        audio: audioB64,
+      });
+
+      if (!sendAudio.ok) {
+        console.error(
+          "[evolution webhook] sendWhatsAppAudio falló, reintento con texto",
+          sendAudio.status,
+          sendAudio.body.slice(0, 500),
+        );
+        const fallback = await evolutionSendText({
+          baseUrl: base,
+          apiKey,
+          instanceName,
+          number: inbound.number,
+          text: reply,
+        });
+        if (!fallback.ok) {
+          return NextResponse.json(
+            {
+              ok: false,
+              error: "Fallo al enviar audio y texto",
+              audioStatus: sendAudio.status,
+              textStatus: fallback.status,
+            },
+            { status: 502 },
+          );
+        }
+        return NextResponse.json({ ok: true, mode: "text_fallback" });
+      }
+
+      return NextResponse.json({ ok: true, mode: "voice" });
+    }
 
     const send = await evolutionSendText({
       baseUrl: base,
@@ -59,7 +112,7 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, mode: "text" });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error("[evolution webhook]", msg);

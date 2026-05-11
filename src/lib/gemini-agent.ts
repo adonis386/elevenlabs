@@ -14,6 +14,8 @@ const SYSTEM_INSTRUCTION =
 export async function generateAgentReply(input: {
   userDisplayName?: string;
   userMessage: string;
+  /** Si true, optimiza el texto para TTS (sin markdown, tono oral). */
+  forVoiceNote?: boolean;
 }): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -28,11 +30,15 @@ export async function generateAgentReply(input: {
       ? `[${input.userDisplayName.trim()}] ${input.userMessage}`
       : input.userMessage;
 
+  const voiceAddendum = input.forVoiceNote
+    ? " Tu mensaje se leerá en voz alta: frases cortas, tono natural, sin markdown ni listas con símbolos."
+    : "";
+
   const response = await ai.models.generateContent({
     model,
     contents: userLine,
     config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: SYSTEM_INSTRUCTION + voiceAddendum,
       thinkingConfig: {
         thinkingLevel: ThinkingLevel.LOW,
       },
