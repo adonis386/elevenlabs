@@ -12,6 +12,17 @@ export function isGeminiRateLimitedError(e: unknown): boolean {
   );
 }
 
+/** Fallo temporal del lado de Google (503 / UNAVAILABLE). */
+export function isGeminiUnavailableError(e: unknown): boolean {
+  if (e instanceof ApiError && e.status === 503) return true;
+  const msg = e instanceof Error ? e.message : String(e);
+  return msg.includes("UNAVAILABLE") || msg.includes("currently unavailable");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 const DEFAULT_MODEL = "gemini-3.1-pro-preview";
 
 /** `thinkingConfig` solo aplica a modelos Gemini 3 (p. ej. gemini-3-*); 2.5 Flash devuelve 400 si se envía. */
@@ -78,20 +89,34 @@ export async function generateAgentReply(input: {
       ? `[${input.userDisplayName.trim()}] ${input.userMessage}`
       : input.userMessage;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: userLine,
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      ...(modelSupportsThinkingConfig(model)
-        ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
-        : {}),
-    },
-  });
+  const config = {
+    systemInstruction: SYSTEM_INSTRUCTION,
+    ...(modelSupportsThinkingConfig(model)
+      ? { thinkingConfig: { thinkingLevel: ThinkingLevel.LOW } }
+      : {}),
+  };
 
-  const text = response.text?.trim();
-  if (!text) {
-    throw new Error("Gemini devolvió respuesta vacía");
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: userLine,
+        config,
+      });
+      const text = response.text?.trim();
+      if (!text) {
+        throw new Error("Gemini devolvió respuesta vacía");
+      }
+      return text;
+    } catch (e) {
+      lastError = e;
+      if (attempt === 0 && isGeminiUnavailableError(e)) {
+        await sleep(2500);
+        continue;
+      }
+      throw e;
+    }
   }
-  return text;
+  throw lastError;
 }

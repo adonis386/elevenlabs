@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { evolutionSendPresence, evolutionSendText } from "@/lib/evolution-outbound";
 import { parseMessagesUpsert } from "@/lib/evolution-inbound";
+import { shouldProcessInboundOnce } from "@/lib/webhook-message-dedupe";
 import { generateAgentReply, isGeminiRateLimitedError } from "@/lib/gemini-agent";
 
 const DEFAULT_QUOTA_WHATSAPP_MESSAGE =
@@ -48,6 +49,13 @@ export async function POST(req: Request) {
   const instanceName = instanceFallback || inbound.instanceName;
   if (!instanceName) {
     return NextResponse.json({ ok: false, error: "Sin nombre de instancia" }, { status: 500 });
+  }
+
+  if (inbound.messageKeyId) {
+    const dedupeKey = `${instanceName}:${inbound.number}:${inbound.messageKeyId}`;
+    if (!shouldProcessInboundOnce(dedupeKey)) {
+      return NextResponse.json({ ok: true, skipped: "duplicate_message" });
+    }
   }
 
   try {

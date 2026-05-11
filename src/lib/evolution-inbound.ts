@@ -5,10 +5,12 @@ export type EvolutionInbound = {
   number: string;
   userText: string;
   pushName?: string;
+  /** Id del mensaje en WhatsApp (`key.id`); para deduplicar webhooks repetidos. */
+  messageKeyId?: string;
 };
 
 type MsgEnvelope = {
-  key?: { remoteJid?: string; fromMe?: boolean };
+  key?: { remoteJid?: string; fromMe?: boolean; id?: string };
   message?: Record<string, unknown>;
   pushName?: string;
 };
@@ -64,6 +66,15 @@ export function parseMessagesUpsert(body: unknown): EvolutionInbound | null {
   const o = body as Record<string, unknown>;
   if (o.event !== "messages.upsert") return null;
 
+  const data = o.data;
+  if (data && typeof data === "object") {
+    const upsertType = (data as Record<string, unknown>).type;
+    // `append` suele repetir mensajes ya vistos en `notify`; procesarlo duplica respuestas.
+    if (upsertType === "append" && process.env.EVOLUTION_PROCESS_UPSERT_APPEND !== "true") {
+      return null;
+    }
+  }
+
   const instanceName =
     (typeof o.instance === "string" && o.instance) ||
     (typeof o.instanceName === "string" && o.instanceName) ||
@@ -79,11 +90,14 @@ export function parseMessagesUpsert(body: unknown): EvolutionInbound | null {
     if (!number) continue;
     const userText = textFromMessage(env.message);
     if (!userText) continue;
+    const messageKeyId =
+      typeof env.key?.id === "string" && env.key.id.trim() ? env.key.id.trim() : undefined;
     return {
       instanceName,
       number,
       userText,
       pushName: typeof env.pushName === "string" ? env.pushName : undefined,
+      messageKeyId,
     };
   }
   return null;

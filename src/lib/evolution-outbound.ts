@@ -42,6 +42,7 @@ export async function evolutionSendPresence(input: {
 }): Promise<{ ok: boolean; status: number; body: string }> {
   const base = input.baseUrl.replace(/\/$/, "");
   const path = `/chat/sendPresence/${encodeURIComponent(input.instanceName)}`;
+  // Evolution 2.3.x exige `presence` y `delay` en el raíz del JSON (el esquema con `options` anidado devuelve 400).
   const res = await fetch(`${base}${path}`, {
     method: "POST",
     headers: {
@@ -50,11 +51,8 @@ export async function evolutionSendPresence(input: {
     },
     body: JSON.stringify({
       number: input.number,
-      options: {
-        delay: input.delayMs,
-        presence: input.presence,
-        number: input.number,
-      },
+      presence: input.presence,
+      delay: input.delayMs,
     }),
   });
   const body = await res.text();
