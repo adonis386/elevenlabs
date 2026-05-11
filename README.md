@@ -1,6 +1,6 @@
-## WhatsApp AI Agent (Twilio + ElevenLabs) — MVP
+## WhatsApp AI Agent (Evolution / Twilio + Gemini) — MVP
 
-This project is a minimal webhook for **Twilio WhatsApp** deployed on **Vercel**.
+Webhook en **Vercel**: Evolution API (Baileys) o Twilio según la ruta; respuestas con **Google Gemini** (texto).
 
 ### Endpoint
 
@@ -36,11 +36,12 @@ In the Twilio Console for your WhatsApp sender, configure the **incoming message
 - Local (with a tunnel like ngrok): `https://<your-tunnel>/api/twilio/whatsapp`
 - Vercel: `https://<your-app>.vercel.app/api/twilio/whatsapp`
 
-### Next steps (we’ll implement next)
+### Evolution (WhatsApp vía Baileys)
 
-- Call ElevenLabs TTS and generate an audio response
-- Host the generated audio (or use a storage provider) and reply via Twilio REST API with media
-- Add robust signature validation using the exact public URL (Vercel headers)
+- `POST /api/evolution/webhook` — evento `messages.upsert`, respuesta con `sendText` y Gemini.
+- `GET /api/evolution/test` — comprobación de conectividad con Evolution.
+
+Variables: ver `.env.example` (`EVOLUTION_*`, `GEMINI_*`).
 
 ## Getting Started
 

@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Altair AI",
-  description: "Agente de WhatsApp (IA) para Altair AI",
+  title: "Vector Studio",
+  description: "Agente de WhatsApp (IA) para Vector Studio",
 };
 
 export default function RootLayout({

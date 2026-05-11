@@ -46,7 +46,7 @@ export async function POST(req: Request) {
   const inboundText = body.get("Body") ?? "";
 
   // MVP: respond immediately via TwiML.
-  // Next step: call ElevenLabs to synthesize audio, host it, and send back via Twilio REST API.
+  // Next step: optional — call Gemini and reply with Twilio REST API / TwiML with generated text.
   const twiml = new twilio.twiml.MessagingResponse();
   twiml.message(`Recibido de ${from}: ${inboundText}`);
 

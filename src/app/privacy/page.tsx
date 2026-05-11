@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Política de Privacidad | Altair AI",
-  description: "Política de privacidad para el agente de WhatsApp (Altair AI).",
+  title: "Política de Privacidad | Vector Studio",
+  description: "Política de privacidad para el agente de WhatsApp (Vector Studio).",
 };
 
 export default function PrivacyPage() {
@@ -20,7 +20,7 @@ export default function PrivacyPage() {
 
       <h2>Resumen</h2>
       <p>
-        Este servicio (&ldquo;Altair AI&rdquo;) permite interactuar con un bot a través de
+        Este servicio (&ldquo;Vector Studio&rdquo;) permite interactuar con un bot a través de
         WhatsApp. Usamos proveedores de mensajería (por ejemplo, Twilio o la API oficial
         de WhatsApp/Meta) para recibir y enviar mensajes.
       </p>
@@ -56,7 +56,7 @@ export default function PrivacyPage() {
           <strong>Proveedor de mensajería</strong> (p. ej. Twilio o WhatsApp Cloud API) para entregar mensajes.
         </li>
         <li>
-          <strong>Proveedor de voz/IA</strong> (p. ej. ElevenLabs) si habilitas respuestas por audio.
+          <strong>Proveedor de IA generativa</strong> (p. ej. Google Gemini) para generar respuestas del asistente.
         </li>
         <li>
           <strong>Hosting</strong> (Vercel) para ejecutar el backend y guardar logs operativos.
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
       <h2>Contacto</h2>
       <p>
         Para solicitudes relacionadas con privacidad:{" "}
-        <a href="mailto:privacy@altair-ai.example">privacy@altair-ai.example</a>
+        <a href="mailto:privacy@vectorstudio.example">privacy@vectorstudio.example</a>
       </p>
 
       <hr style={{ margin: "32px 0" }} />
